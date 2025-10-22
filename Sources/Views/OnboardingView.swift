@@ -135,12 +135,12 @@ struct CosmicBackground: View {
     
     var body: some View {
         ZStack {
-            // Base gradient
+            // Base gradient - slightly desaturated for better UI contrast
             LinearGradient(
                 colors: [
-                    Color(red: 0.05, green: 0.05, blue: 0.15),
-                    Color(red: 0.1, green: 0.05, blue: 0.2),
-                    Color(red: 0.15, green: 0.05, blue: 0.25)
+                    Color(red: 0.043, green: 0.043, blue: 0.071),  // #0B0B12
+                    Color(red: 0.086, green: 0.066, blue: 0.12),    // Slightly desaturated
+                    Color(red: 0.118, green: 0.106, blue: 0.173)    // #1E1B2C
                 ],
                 startPoint: animateGradient ? .topLeading : .bottomLeading,
                 endPoint: animateGradient ? .bottomTrailing : .topTrailing
@@ -221,6 +221,7 @@ struct ModernButton: View {
     let style: ButtonStyleType
     var disabled: Bool = false
     let action: () -> Void
+    @State private var isHovered = false
     
     enum ButtonStyleType {
         case primary, secondary
@@ -230,41 +231,64 @@ struct ModernButton: View {
         Button(action: action) {
             Text(text)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(style == .primary ? .white : Color.white.opacity(0.9))
+                .foregroundColor(.white)
+                .shadow(color: .white.opacity(0.3), radius: 2, x: 0, y: 0)
                 .padding(.horizontal, 32)
                 .padding(.vertical, 14)
                 .background(
                     Group {
                         if style == .primary {
+                            // Cyan gradient accent button
                             LinearGradient(
                                 colors: [
-                                    Color(red: 0.5, green: 0.3, blue: 0.9),
-                                    Color(red: 0.7, green: 0.4, blue: 1)
+                                    Color(red: 0.231, green: 0.51, blue: 0.969),  // #3b82f6
+                                    Color(red: 0.024, green: 0.714, blue: 0.831)  // #06b6d4
                                 ],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
                         } else {
-                            Color.white.opacity(0.15)
+                            // Neutral glass background
+                            Color.white.opacity(0.05)
                         }
                     }
                 )
                 .cornerRadius(12)
                 .shadow(
-                    color: style == .primary ? Color(red: 0.6, green: 0.3, blue: 0.9).opacity(0.5) : Color.clear,
-                    radius: 12,
+                    color: style == .primary ? Color(red: 0.024, green: 0.714, blue: 0.831).opacity(0.4) : Color.black.opacity(0.3),
+                    radius: isHovered ? 16 : 12,
                     x: 0,
                     y: 4
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(style == .primary ? 0.2 : 0.3), lineWidth: 1)
+                        .stroke(
+                            style == .primary ? 
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.6), // #38bdf8
+                                    Color(red: 0.024, green: 0.714, blue: 0.831).opacity(0.4)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ) :
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.12)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
                 )
         }
         .buttonStyle(.plain)
         .disabled(disabled)
         .opacity(disabled ? 0.5 : 1)
-        .scaleEffect(disabled ? 0.95 : 1)
+        .scaleEffect(disabled ? 0.95 : (isHovered ? 1.02 : 1.0))
+        .animation(.easeOut(duration: 0.2), value: isHovered)
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
 }
 
@@ -283,13 +307,13 @@ struct WelcomeStep: View {
             
             // Hero Rocket with Glow
             ZStack {
-                // Soft radial glow behind rocket
+                // Soft radial glow behind rocket - cyan accent
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(red: 0.65, green: 0.4, blue: 0.95).opacity(glowOpacity),
-                                Color(red: 0.5, green: 0.3, blue: 0.8).opacity(glowOpacity * 0.6),
+                                Color(red: 0.22, green: 0.741, blue: 0.969).opacity(glowOpacity * 0.4),  // #38bdf8
+                                Color(red: 0.231, green: 0.51, blue: 0.969).opacity(glowOpacity * 0.25), // #3b82f6
                                 Color.clear
                             ],
                             center: .center,
@@ -305,14 +329,14 @@ struct WelcomeStep: View {
                     .foregroundStyle(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.7, green: 0.5, blue: 1),
-                                Color(red: 0.85, green: 0.6, blue: 1)
+                                Color.white,
+                                Color(red: 0.22, green: 0.741, blue: 0.969)  // #38bdf8
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .shadow(color: Color(red: 0.6, green: 0.4, blue: 0.9).opacity(0.35), radius: 20, x: 0, y: 10)
+                    .shadow(color: Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.4), radius: 20, x: 0, y: 10)
                     .scaleEffect(rocketScale)
                     .offset(y: rocketOffset)
                     .accessibilityHidden(true)
@@ -345,7 +369,7 @@ struct WelcomeStep: View {
                     )
                     .accessibilityAddTraits(.isHeader)
                 
-                Text("Stop sending your projects into oblivion")
+                Text("Stop sending your projects into the abyss")
                     .font(.system(size: 17))
                     .foregroundColor(.white.opacity(0.75))
                     .multilineTextAlignment(.center)
@@ -390,20 +414,11 @@ struct CosmicFeatureRow: View {
         HStack(spacing: 18) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.5, green: 0.3, blue: 0.9).opacity(0.3),
-                                Color(red: 0.6, green: 0.4, blue: 1).opacity(0.2)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(Color.white.opacity(0.05))  // Neutral glass
                     .frame(width: 40, height: 40)
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
                     )
                 
                 Image(systemName: icon)
@@ -411,8 +426,8 @@ struct CosmicFeatureRow: View {
                     .foregroundStyle(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.7, green: 0.5, blue: 1),
-                                Color(red: 0.9, green: 0.6, blue: 1)
+                                Color(red: 0.22, green: 0.741, blue: 0.969),  // #38bdf8
+                                Color(red: 0.231, green: 0.51, blue: 0.969)   // #3b82f6
                             ],
                             startPoint: .top,
                             endPoint: .bottom
@@ -469,6 +484,7 @@ struct CosmicMotivationCard: View {
     let style: MotivationStyle
     let isSelected: Bool
     let action: () -> Void
+    @State private var isHovered = false
     
     var body: some View {
         Button(action: action) {
@@ -476,11 +492,11 @@ struct CosmicMotivationCard: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(style.rawValue)
                         .font(.system(size: 19, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(isSelected ? .white : .white.opacity(0.9))
                     
                     Text(style.description)
                         .font(.system(size: 15))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(isSelected ? .white.opacity(0.7) : .white.opacity(0.6))
                         .multilineTextAlignment(.leading)
                 }
                 
@@ -492,15 +508,15 @@ struct CosmicMotivationCard: View {
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color(red: 0.5, green: 0.3, blue: 0.9),
-                                        Color(red: 0.7, green: 0.4, blue: 1)
+                                        Color(red: 0.231, green: 0.51, blue: 0.969),   // #3b82f6
+                                        Color(red: 0.024, green: 0.714, blue: 0.831)   // #06b6d4
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
                             )
                             .frame(width: 32, height: 32)
-                            .shadow(color: Color(red: 0.6, green: 0.3, blue: 0.9).opacity(0.6), radius: 8)
+                            .shadow(color: Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.6), radius: 8)
                         
                         Image(systemName: "checkmark")
                             .font(.system(size: 16, weight: .bold))
@@ -515,17 +531,24 @@ struct CosmicMotivationCard: View {
             .padding(22)
             .background(
                 ZStack {
+                    // Neutral glass base
+                    Color.white.opacity(isSelected ? 0.05 : 0.03)
+                    
+                    // Subtle inner border glow on selected
                     if isSelected {
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.5, green: 0.3, blue: 0.9).opacity(0.3),
-                                Color(red: 0.6, green: 0.35, blue: 0.95).opacity(0.2)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    } else {
-                        Color.white.opacity(0.08)
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.15),
+                                        Color.clear
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                            .blur(radius: 2)
                     }
                 }
             )
@@ -536,14 +559,14 @@ struct CosmicMotivationCard: View {
                         isSelected ? 
                         LinearGradient(
                             colors: [
-                                Color(red: 0.6, green: 0.4, blue: 1).opacity(0.8),
-                                Color(red: 0.7, green: 0.5, blue: 1).opacity(0.5)
+                                Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.8),  // #38bdf8
+                                Color(red: 0.231, green: 0.51, blue: 0.969).opacity(0.5)   // #3b82f6
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ) : 
                         LinearGradient(
-                            colors: [Color.white.opacity(0.2)],
+                            colors: [Color.white.opacity(0.12)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
@@ -551,15 +574,21 @@ struct CosmicMotivationCard: View {
                     )
             )
             .shadow(
-                color: isSelected ? Color(red: 0.6, green: 0.3, blue: 0.9).opacity(0.3) : Color.clear,
-                radius: 16,
+                color: isSelected ? Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.3) : Color.black.opacity(0.1),
+                radius: isSelected ? 16 : 8,
                 x: 0,
-                y: 8
+                y: isSelected ? 8 : 4
             )
         }
         .buttonStyle(.plain)
-        .scaleEffect(isSelected ? 1.02 : 1.0)
+        .scaleEffect(isSelected ? 1.02 : (isHovered ? 1.01 : 1.0))
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
+        .animation(.easeOut(duration: 0.2), value: isHovered)
+        .onHover { hovering in
+            if !isSelected {
+                isHovered = hovering
+            }
+        }
     }
 }
 
@@ -627,6 +656,7 @@ struct ProjectSelectionStep: View {
 struct FolderRow: View {
     let folder: String
     let onRemove: () -> Void
+    @State private var isHovered = false
     
     var body: some View {
         HStack(spacing: 16) {
@@ -641,18 +671,23 @@ struct FolderRow: View {
             
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.white.opacity(isHovered ? 0.7 : 0.5))
                     .font(.system(size: 18))
             }
             .buttonStyle(.plain)
         }
         .padding(16)
-        .background(Color.white.opacity(0.08))
+        .background(Color.white.opacity(0.05))  // Neutral glass
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
+        .scaleEffect(isHovered ? 1.01 : 1.0)
+        .animation(.easeOut(duration: 0.2), value: isHovered)
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
 }
 
@@ -660,24 +695,22 @@ struct FolderIcon: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.5, green: 0.3, blue: 0.9).opacity(0.3),
-                            Color(red: 0.6, green: 0.4, blue: 1).opacity(0.2)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .fill(Color.white.opacity(0.05))  // Neutral glass
                 .frame(width: 36, height: 36)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(
+                            Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.3),  // Cyan outline
+                            lineWidth: 1
+                        )
+                )
             
             Image(systemName: "folder.fill")
                 .foregroundStyle(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.7, green: 0.5, blue: 1),
-                            Color(red: 0.9, green: 0.6, blue: 1)
+                            Color(red: 0.22, green: 0.741, blue: 0.969),  // #38bdf8
+                            Color(red: 0.231, green: 0.51, blue: 0.969)   // #3b82f6
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -689,35 +722,52 @@ struct FolderIcon: View {
 
 struct AddFolderButton: View {
     let action: () -> Void
+    @State private var isHovered = false
     
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 20))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.22, green: 0.741, blue: 0.969),  // #38bdf8
+                                Color(red: 0.231, green: 0.51, blue: 0.969)   // #3b82f6
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                 Text("Add Folder")
                     .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
             }
-            .foregroundColor(.white)
             .frame(maxWidth: .infinity)
             .padding(16)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.5, green: 0.3, blue: 0.9).opacity(0.4),
-                        Color(red: 0.6, green: 0.4, blue: 1).opacity(0.3)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            .background(Color.white.opacity(0.05))  // Neutral glass
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.22, green: 0.741, blue: 0.969).opacity(isHovered ? 0.5 : 0.3),
+                                Color(red: 0.231, green: 0.51, blue: 0.969).opacity(isHovered ? 0.3 : 0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
             )
         }
         .buttonStyle(.plain)
+        .scaleEffect(isHovered ? 1.01 : 1.0)
+        .animation(.easeOut(duration: 0.2), value: isHovered)
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
 }
 
@@ -729,8 +779,8 @@ struct EmptyFoldersView: View {
                 .foregroundStyle(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.6, green: 0.4, blue: 1).opacity(0.5),
-                            Color(red: 0.8, green: 0.5, blue: 1).opacity(0.3)
+                            Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.4),  // #38bdf8
+                            Color(red: 0.231, green: 0.51, blue: 0.969).opacity(0.25)  // #3b82f6
                         ],
                         startPoint: .top,
                         endPoint: .bottom
@@ -762,7 +812,7 @@ struct AIFeaturesStep: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(red: 0.7, green: 0.4, blue: 1).opacity(0.3),
+                                Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.25),
                                 Color.clear
                             ],
                             center: .center,
@@ -778,9 +828,9 @@ struct AIFeaturesStep: View {
                     .foregroundStyle(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.7, green: 0.5, blue: 1),
-                                Color(red: 0.9, green: 0.6, blue: 1),
-                                Color(red: 1, green: 0.7, blue: 1)
+                                Color(red: 0.22, green: 0.741, blue: 0.969),
+                                Color(red: 0.231, green: 0.51, blue: 0.969),
+                                Color.white.opacity(0.8)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -823,13 +873,13 @@ struct AIFeaturesStep: View {
                 }
             }
             .toggleStyle(.switch)
-            .tint(Color(red: 0.6, green: 0.4, blue: 1))
+            .tint(Color(red: 0.22, green: 0.741, blue: 0.969))  // Cyan accent
             .padding(20)
-            .background(Color.white.opacity(0.1))
+            .background(Color.white.opacity(0.05))  // Neutral glass
             .cornerRadius(14)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
             )
             
             if enableAI {
@@ -839,8 +889,8 @@ struct AIFeaturesStep: View {
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [
-                                        Color(red: 0.6, green: 0.4, blue: 1),
-                                        Color(red: 0.8, green: 0.5, blue: 1)
+                                        Color(red: 0.22, green: 0.741, blue: 0.969),
+                                        Color(red: 0.231, green: 0.51, blue: 0.969)
                                     ],
                                     startPoint: .top,
                                     endPoint: .bottom
@@ -857,20 +907,14 @@ struct AIFeaturesStep: View {
                         .padding(.leading, 26)
                 }
                 .padding(16)
-                .background(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.6, green: 0.4, blue: 1).opacity(0.2),
-                            Color(red: 0.7, green: 0.5, blue: 1).opacity(0.15)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
+                .background(Color.white.opacity(0.05))  // Neutral glass
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color(red: 0.6, green: 0.4, blue: 1).opacity(0.4), lineWidth: 1)
+                        .stroke(
+                            Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.3),
+                            lineWidth: 1
+                        )
                 )
                 .transition(.scale.combined(with: .opacity))
             }
@@ -899,7 +943,7 @@ struct ReadyStep: View {
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    Color(red: 0.6, green: 0.4, blue: 1).opacity(0.4),
+                                    Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.3),  // Cyan glow
                                     Color.clear
                                 ],
                                 center: .center,
@@ -913,7 +957,7 @@ struct ReadyStep: View {
                     
                     ProgressView()
                         .scaleEffect(2)
-                        .tint(.white)
+                        .tint(Color(red: 0.22, green: 0.741, blue: 0.969))
                 }
                 .onAppear {
                     withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {

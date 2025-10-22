@@ -47,6 +47,11 @@ struct GoalSheet: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 40)
+                        .padding(.horizontal, 20)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(NSColor.controlBackgroundColor).opacity(0.3))
+                        )
                     } else {
                         ForEach(goals) { goal in
                             GoalRow(
@@ -68,7 +73,7 @@ struct GoalSheet: View {
             VStack(alignment: .leading, spacing: 12) {
                 Label("Add New Goal", systemImage: "plus.circle.fill")
                     .font(.headline)
-                    .foregroundColor(.blue)
+                    .foregroundColor(Color(red: 0.22, green: 0.741, blue: 0.969))
 
                 TextEditor(text: $newGoalText)
                     .font(.body)
@@ -78,7 +83,7 @@ struct GoalSheet: View {
                     .cornerRadius(8)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                            .stroke(Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.3), lineWidth: 1)
                     )
                     .focused($isNewGoalEditorFocused)
 
@@ -182,7 +187,7 @@ struct GoalRow: View {
             Button(action: onToggleComplete) {
                 Image(systemName: goal.isCompleted ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 20))
-                    .foregroundColor(goal.isCompleted ? .green : .secondary)
+                    .foregroundColor(goal.isCompleted ? .green : Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.6))
             }
             .buttonStyle(.plain)
 
@@ -222,7 +227,7 @@ struct GoalRow: View {
                     Button(action: onEdit) {
                         Image(systemName: "pencil")
                             .font(.system(size: 12))
-                            .foregroundColor(.blue)
+                            .foregroundColor(Color(red: 0.22, green: 0.741, blue: 0.969))
                     }
                     .buttonStyle(.plain)
 
@@ -244,6 +249,8 @@ struct GoalRow: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(goal.isCompleted ? Color.green.opacity(0.2) : Color.gray.opacity(0.1), lineWidth: 1)
         )
+        .scaleEffect(isHovered ? 1.01 : 1.0)
+        .animation(.easeOut(duration: 0.2), value: isHovered)
         .onHover { hovering in
             isHovered = hovering
         }
@@ -286,7 +293,7 @@ struct EditGoalSheet: View {
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                        .stroke(Color(red: 0.22, green: 0.741, blue: 0.969).opacity(0.3), lineWidth: 1)
                 )
                 .focused($isEditorFocused)
 

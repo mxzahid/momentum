@@ -259,6 +259,7 @@ struct FoldersSettingsView: View {
                 Button(action: { showingFolderPicker = true }) {
                     Label("Add Folder", systemImage: "plus")
                 }
+                .foregroundColor(Color(red: 0.22, green: 0.741, blue: 0.969))
             }
             .padding()
             
@@ -266,7 +267,7 @@ struct FoldersSettingsView: View {
                 ForEach(settingsManager.settings.watchFolders, id: \.self) { folder in
                     HStack {
                         Image(systemName: "folder.fill")
-                            .foregroundColor(.blue)
+                            .foregroundColor(Color(red: 0.22, green: 0.741, blue: 0.969))
                         
                         Text(folder)
                             .font(.system(size: 13, design: .monospaced))
