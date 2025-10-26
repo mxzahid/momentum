@@ -95,7 +95,7 @@ To remove Momentum from your Mac:
 ## Support
 
 If you encounter any issues:
-- Check existing [GitHub Issues](https://github.com/yourusername/momentum/issues)
+- Check existing [GitHub Issues](https://github.com/mxzahid/momentum/issues)
 - Open a new issue with details about your problem
 - Include your macOS version and any error messages
 
@@ -103,7 +103,7 @@ If you encounter any issues:
 
 Momentum:
 - Does not collect any personal data
-- Does not send data to external servers (except for optional AI features if configured)
+- Does not send data to external servers
 - Runs entirely on your local machine
 - Is open source - you can review the code yourself
 
