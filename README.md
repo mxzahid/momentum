@@ -16,7 +16,6 @@ Momentum helps makers and developers stay accountable to their unfinished side p
 - **🎭 Personality Styles**: Choose your motivation style (Friendly, Guilt Trip, Data Nerd, Coach)
 - **📈 Activity Dashboard**: Beautiful SwiftUI interface showing all projects with status indicators
 - **🎯 Goal Setting**: Set milestones and deadlines for individual projects
-- **🤖 AI Insights** (Optional): Local AI-powered recommendations via Ollama
 - **🍎 Menu Bar Widget**: Quick glance at project status from the menu bar
 - **🔒 100% Private**: All data stored locally, no cloud sync, no telemetry
 
@@ -24,7 +23,7 @@ Momentum helps makers and developers stay accountable to their unfinished side p
 
 ### Download Pre-Built App
 
-**[Download Momentum for macOS →](https://github.com/yourusername/momentum/releases/latest)**
+**[Download Momentum for macOS →](https://momentum.abdullahz.space)**
 
 Choose from:
 - `Momentum.dmg` (Recommended) - Drag and drop installer
@@ -163,33 +162,6 @@ momentumScore = 100 * exp(-daysSinceActivity / 10.0)
 - 🟠 **Inactive**: 8-30 days
 - 🔴 **Dormant**: >30 days
 
-## 🤖 AI Features
-
-Momentum can integrate with local AI models via Ollama for:
-
-1. **Project Analysis**: Summarize your work patterns
-2. **Next Actions**: Suggest concrete next steps
-3. **Motivation**: Generate personalized encouragement
-4. **Portfolio Insights**: Analyze your project portfolio
-
-### Setting Up Ollama
-
-1. Install Ollama:
-   ```bash
-   brew install ollama
-   ```
-
-2. Pull a model:
-   ```bash
-   ollama pull llama2
-   ```
-
-3. Start the server:
-   ```bash
-   ollama serve
-   ```
-
-4. Enable AI in Momentum settings
 
 ## ⚙️ Configuration
 
@@ -254,13 +226,12 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - Built with [SwiftUI](https://developer.apple.com/xcode/swiftui/)
 - Database powered by [SQLite.swift](https://github.com/stephencelis/SQLite.swift)
-- AI features via [Ollama](https://ollama.ai)
 - Inspired by the countless unfinished projects we all have
 
 ## 💬 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/momentum/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/momentum/discussions)
+- **Issues**: [GitHub Issues](https://github.com/mxzahid/momentum/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/mxzahid/momentum/discussions)
 
 ---
 
