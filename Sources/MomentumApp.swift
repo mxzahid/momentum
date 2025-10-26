@@ -65,16 +65,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return event
         }
 
-        // Request notification permissions and start monitoring
-        // Only if running in a proper app bundle (not from swift run)
-        if Bundle.main.bundleIdentifier != nil {
+        // Check if running in DerivedData (Xcode build)
+        let isRunningInXcode = Bundle.main.bundleURL.path.contains("DerivedData")
+
+        if isRunningInXcode {
+            print("⚠️ Running in Xcode DerivedData - notifications disabled")
+            print("💡 Build the app properly and run outside of Xcode for notifications to work")
+        } else {
+            // Request notification permissions and start monitoring
             Task {
                 await NotificationManager.shared.requestAuthorization()
+                await NotificationManager.shared.setupNotificationActions()
                 await ProjectMonitorService.shared.startMonitoring()
             }
+        }
+
+        if Bundle.main.bundleIdentifier != nil {
+            print("✅ Running with proper app bundle - notifications enabled")
+            print("💡 Bundle identifier: \(Bundle.main.bundleIdentifier ?? "nil")")
+            print("💡 Bundle path: \(Bundle.main.bundlePath)")
         } else {
-            print("⚠️  Running without app bundle - notifications disabled")
-            print("Open in Xcode and run from there for full functionality")
+            print("⚠️  Running without app bundle - notifications may not work but will show alerts")
+            print("💡 Build and run from Xcode with proper entitlements for notifications to work")
+            print("💡 Current bundle path: \(Bundle.main.bundlePath)")
+            print("💡 Current bundle identifier: \(Bundle.main.bundleIdentifier ?? "nil")")
         }
     }
     

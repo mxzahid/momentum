@@ -1,4 +1,6 @@
 import SwiftUI
+import UserNotifications
+import AppKit
 
 struct SettingsView: View {
     @EnvironmentObject var settingsManager: SettingsManager
@@ -72,7 +74,8 @@ struct GeneralSettingsView: View {
 
 struct NotificationSettingsView: View {
     @EnvironmentObject var settingsManager: SettingsManager
-    
+    @State private var notificationStatus: String = "Checking..."
+
     var body: some View {
         Form {
             Section {
@@ -122,15 +125,73 @@ struct NotificationSettingsView: View {
             }
             
             Section {
-                Button("Test Notification") {
-                    testNotification()
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Notification Status")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        Text(notificationStatusText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Spacer()
+
+                    Button("Test Notification") {
+                        testNotification()
+                    }
                 }
             }
         }
         .formStyle(.grouped)
         .padding()
+        .onAppear {
+            checkNotificationStatus()
+        }
     }
-    
+
+    var notificationStatusText: String {
+        if Bundle.main.bundleIdentifier == nil {
+            return "No bundle identifier - notifications may not work"
+        }
+
+        // Check if we have a proper bundle URL (not in DerivedData)
+        if Bundle.main.bundleURL.path.contains("DerivedData") {
+            return "Building in Xcode - notifications may not work properly"
+        }
+
+        return notificationStatus
+    }
+
+    private func checkNotificationStatus() {
+        // Skip status check if running in DerivedData (Xcode build)
+        if Bundle.main.bundleURL.path.contains("DerivedData") {
+            notificationStatus = "Building in Xcode - status unavailable"
+            return
+        }
+
+        Task {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            await MainActor.run {
+                switch settings.authorizationStatus {
+                case .authorized:
+                    notificationStatus = "✅ Authorized"
+                case .denied:
+                    notificationStatus = "❌ Denied by user"
+                case .notDetermined:
+                    notificationStatus = "⏳ Not requested yet"
+                case .provisional:
+                    notificationStatus = "⚠️ Provisional"
+                case .ephemeral:
+                    notificationStatus = "⚠️ Ephemeral"
+                @unknown default:
+                    notificationStatus = "❓ Unknown status"
+                }
+            }
+        }
+    }
+
     private func formatHour(_ hour: Int) -> String {
         let formatter = DateFormatter()
         formatter.dateFormat = "h a"
@@ -139,6 +200,32 @@ struct NotificationSettingsView: View {
     }
     
     private func testNotification() {
+        print("🔔 Test notification triggered")
+
+        // Check if running in Xcode DerivedData
+        if Bundle.main.bundleURL.path.contains("DerivedData") {
+            print("⚠️ Running in Xcode - system notifications won't work")
+            print("💡 The alert should appear shortly as a fallback")
+
+            // Show immediate feedback for Xcode builds
+            let alert = NSAlert()
+            alert.messageText = "Test Notification (Xcode Mode)"
+            alert.informativeText = "System notifications don't work when running in Xcode. This alert is shown as a fallback."
+            alert.alertStyle = .informational
+            alert.addButton(withTitle: "OK")
+            alert.runModal()
+
+            return
+        }
+
+        // Check bundle identifier first
+        if let bundleId = Bundle.main.bundleIdentifier {
+            print("✅ Bundle identifier found: \(bundleId)")
+        } else {
+            print("❌ No bundle identifier - notifications may not work")
+            print("💡 Try building and running from Xcode with proper entitlements")
+        }
+
         Task {
             let testProject = Project(
                 name: "Test Project",
@@ -146,9 +233,10 @@ struct NotificationSettingsView: View {
                 lastCommitDate: Date().addingTimeInterval(-7 * 86400),
                 isGitRepository: true
             )
-            
+
             let message = settingsManager.settings.motivationStyle.generateMessage(for: testProject)
-            
+            print("📝 Test notification message: \(message)")
+
             await NotificationManager.shared.sendNotification(
                 title: "Test Notification",
                 body: message,

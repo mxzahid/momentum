@@ -135,3 +135,21 @@ Application Support/
 *.bak
 *.backup
 
+# Dist artifcats
+dist/
+Momentum.app/
+*.zip
+*.dmg
+*.sha256
+checksums.txt
+
+#Build products
+.swiftpm/
+Momentum.xcodeproj/xcuserdata/
+Momentum.xcodeproj/project.xcworkspace
+
+scripts/distribute.sh
+
+DISTRIBUTION.md
+
+AppIcon.icns

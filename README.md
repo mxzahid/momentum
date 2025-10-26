@@ -22,11 +22,21 @@ Momentum helps makers and developers stay accountable to their unfinished side p
 
 ## 🚀 Getting Started
 
+### Download Pre-Built App
+
+**[Download Momentum for macOS →](https://github.com/yourusername/momentum/releases/latest)**
+
+Choose from:
+- `Momentum.dmg` (Recommended) - Drag and drop installer
+- `Momentum.zip` (Alternative) - Extract and move to Applications
+
+📋 **[Installation Instructions](INSTALL.md)** - Important: Since this app is free and not notarized, macOS will show a security warning on first launch. See INSTALL.md for easy workaround.
+
 ### Prerequisites
 
 - macOS 13.0 (Ventura) or later
-- Xcode 15.0 or later
-- Swift 5.9 or later
+- Xcode 15.0 or later (for building from source)
+- Swift 5.9 or later (for building from source)
 - (Optional) [Ollama](https://ollama.ai) for AI features
 
 ### Building from Source
@@ -253,6 +263,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/momentum/discussions)
 
 ---
-
-**Made with ❤️ for makers who start many projects and want to finish more.**
 

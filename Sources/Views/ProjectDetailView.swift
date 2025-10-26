@@ -6,9 +6,11 @@ struct ProjectDetailView: View {
     @EnvironmentObject var settingsManager: SettingsManager
     @State private var showingGoalSheet = false
     @State private var showingDeleteAlert = false
+    @State private var showConfetti = false
     @State private var aiInsight: AIService.AIInsight?
     @State private var isLoadingAI = false
     @State private var mouseLocation: CGPoint = .zero
+    @State private var contentOpacity: Double = 0
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     
@@ -19,31 +21,44 @@ struct ProjectDetailView: View {
                 .ignoresSafeArea()
             
             ZStack(alignment: .topTrailing) {
-                ScrollView {
-                    VStack(spacing: 24) {
-                        // MARK: - Hero Section with Momentum Ring
-                        LiquidMomentumRing(
-                            score: project.momentumScore,
-                            accentColor: accentColor,
-                            projectName: project.name,
-                            projectPath: project.path,
-                            status: project.activityStatus,
-                            isPaused: project.isPaused
+                GeometryReader { geometry in
+                    VStack(spacing: 0) {
+                        // MARK: - Hero Section with Ring & Ambient Stats Panel (Top 50%)
+                        MomentumHeroSection(
+                            project: project,
+                            accentColor: accentColor
                         )
-                        .padding(.top, 60)
-                        .padding(.horizontal)
+                        .frame(height: geometry.size.height * 0.5)
+                        .padding(.horizontal, 40)
+                        .opacity(contentOpacity)
                         
-                        // MARK: - Stats Row (Floating Glass Tiles)
-                        FloatingStatsRow(project: project, accentColor: accentColor)
-                            .padding(.horizontal)
-                        
-                        // MARK: - Goals Section (Glass Panel)
+                        // MARK: - Goals Section (Bottom 50%)
                         GlassGoalsSection(
                             project: project,
+                            projectStore: projectStore,
                             showingGoalSheet: $showingGoalSheet
                         )
-                        .padding(.horizontal)
-                        .padding(.bottom, 30)
+                        .frame(height: geometry.size.height * 0.5)
+                        .padding(.horizontal, 40)
+                        .padding(.bottom, 20)
+                        .opacity(contentOpacity)
+                    }
+                    .onAppear {
+                        if !reduceMotion {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                contentOpacity = 1
+                            }
+                        } else {
+                            contentOpacity = 1
+                        }
+                    }
+                    .onChange(of: project.id) { _ in
+                        if !reduceMotion {
+                            contentOpacity = 0
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                contentOpacity = 1
+                            }
+                        }
                     }
                 }
                 
@@ -51,6 +66,7 @@ struct ProjectDetailView: View {
                 FloatingActionBar(
                     project: project,
                     togglePause: togglePause,
+                    toggleComplete: toggleComplete,
                     refreshProject: refreshProject,
                     showDeleteAlert: { showingDeleteAlert = true }
                 )
@@ -58,6 +74,7 @@ struct ProjectDetailView: View {
                 .padding(.trailing, 20)
             }
         }
+        .confetti(isPresented: $showConfetti)
         .sheet(isPresented: $showingGoalSheet) {
             GoalSheet(project: project)
                 .onAppear {
@@ -96,9 +113,254 @@ struct ProjectDetailView: View {
         projectStore.updateProject(updated)
     }
     
+    private func toggleComplete() {
+        if project.isCompleted {
+            projectStore.uncompleteProject(project)
+        } else {
+            projectStore.completeProject(project)
+            // Show confetti when completing
+            showConfetti = true
+        }
+    }
+    
     private func refreshProject() {
         Task {
             await projectStore.refreshProject(project)
+        }
+    }
+}
+
+// MARK: - Momentum Hero Section (Ring + Ambient Stats)
+
+struct MomentumHeroSection: View {
+    let project: Project
+    let accentColor: Color
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    
+    var body: some View {
+        GeometryReader { geometry in
+            let isNarrow = geometry.size.width < 600
+            
+            if isNarrow {
+                // Stack vertically on narrow windows
+                VStack(spacing: 40) {
+                    LiquidMomentumRing(
+                        score: project.momentumScore,
+                        accentColor: accentColor,
+                        projectName: project.name,
+                        projectPath: project.path,
+                        status: project.activityStatus,
+                        isPaused: project.isPaused,
+                        isCompleted: project.isCompleted,
+                        size: min(geometry.size.width * 0.6, geometry.size.height * 0.6)
+                    )
+                    
+                    AmbientStatsPanel(
+                        project: project,
+                        accentColor: accentColor
+                    )
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                // Side-by-side on wide layouts
+                HStack(alignment: .center, spacing: 60) {
+                    Spacer()
+                    
+                    LiquidMomentumRing(
+                        score: project.momentumScore,
+                        accentColor: accentColor,
+                        projectName: project.name,
+                        projectPath: project.path,
+                        status: project.activityStatus,
+                        isPaused: project.isPaused,
+                        isCompleted: project.isCompleted,
+                        size: min(geometry.size.width * 0.35, geometry.size.height * 0.75)
+                    )
+                    
+                    AmbientStatsPanel(
+                        project: project,
+                        accentColor: accentColor
+                    )
+                    .frame(maxWidth: 250)
+                    
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+}
+
+// MARK: - Ambient Stats Panel
+
+struct AmbientStatsPanel: View {
+    let project: Project
+    let accentColor: Color
+    @State private var isHovered = false
+    @State private var statsVisible = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.colorSchemeContrast) var colorSchemeContrast
+    
+    var body: some View {
+        let highContrast = colorSchemeContrast == .increased
+        
+        ZStack(alignment: .leading) {
+            // Vertical divider line (48pt left margin)
+            if !highContrast {
+                Rectangle()
+                    .fill(Color.white.opacity(0.06))
+                    .frame(width: 1)
+                    .offset(x: -48)
+                    .overlay(
+                        // Accent glow near icons
+                        Rectangle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.clear,
+                                        accentColor.opacity(0.1),
+                                        Color.clear
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .frame(width: 1)
+                            .blur(radius: 4)
+                    )
+            }
+            
+            VStack(alignment: .leading, spacing: 18) {
+                // Last Activity - Lime tint
+                AmbientStatRow(
+                    icon: "clock",
+                    label: "Last Activity",
+                    value: lastActivityText,
+                    iconColor: DynamicAccentColor.limeTint,
+                    isHovered: isHovered
+                )
+                .opacity(statsVisible ? 1 : 0)
+                .offset(y: reduceMotion ? 0 : (statsVisible ? 0 : 5))
+                
+                // Commits - Mint blue tint
+                AmbientStatRow(
+                    icon: "brain.head.profile",
+                    label: "Commits",
+                    value: "\(project.commitCount)",
+                    iconColor: DynamicAccentColor.mintBlueTint,
+                    isHovered: isHovered
+                )
+                .opacity(statsVisible ? 1 : 0)
+                .offset(y: reduceMotion ? 0 : (statsVisible ? 0 : 5))
+                
+                // Days Inactive - Amber tint
+                AmbientStatRow(
+                    icon: "zzz",
+                    label: "Days Inactive",
+                    value: project.daysSinceLastActivity == Int.max ? "∞" : "\(project.daysSinceLastActivity)",
+                    iconColor: DynamicAccentColor.amberTint,
+                    isHovered: isHovered
+                )
+                .opacity(statsVisible ? 1 : 0)
+                .offset(y: reduceMotion ? 0 : (statsVisible ? 0 : 5))
+            }
+            .padding(.leading, 20)
+            .onAppear {
+                if !reduceMotion {
+                    withAnimation(.easeOut(duration: 0.4).delay(0.2)) {
+                        statsVisible = true
+                    }
+                } else {
+                    statsVisible = true
+                }
+            }
+        }
+        .onHover { hovering in
+            if !reduceMotion {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    isHovered = hovering
+                }
+            }
+        }
+    }
+    
+    private var lastActivityText: String {
+        guard project.lastActivityDate != nil else { return "Never" }
+        let days = project.daysSinceLastActivity
+        if days == 0 { return "Today" }
+        if days == 1 { return "Yesterday" }
+        return "\(days)d ago"
+    }
+}
+
+// MARK: - Ambient Stat Row
+
+struct AmbientStatRow: View {
+    let icon: String
+    let label: String
+    let value: String
+    let iconColor: Color
+    let isHovered: Bool
+    @State private var valueChanged = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.colorSchemeContrast) var colorSchemeContrast
+    
+    var body: some View {
+        let highContrast = colorSchemeContrast == .increased
+        
+        HStack(spacing: 20) {
+            // Icon with circular mood-tinted glow
+            ZStack {
+                // Circular glow behind icon
+                if !highContrast {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    iconColor.opacity(isHovered ? 0.18 : 0.12),
+                                    iconColor.opacity(isHovered ? 0.08 : 0.05),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 8,
+                                endRadius: 28
+                            )
+                        )
+                        .frame(width: 56, height: 56)
+                        .blur(radius: 12)
+                }
+                
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(iconColor.opacity(isHovered ? 1.0 : 0.85))
+                    .frame(width: 28, height: 28)
+            }
+            
+            // Label (13pt Medium, 60% white)
+            Text(label)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white.opacity(0.6))
+                .lineSpacing(1.3)
+            
+            Spacer()
+            
+            // Value (18pt Semibold, 100% white)
+            Text(value)
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundColor(.white)
+                .opacity(valueChanged ? 0 : 1)
+                .offset(y: valueChanged ? -5 : 0)
+        }
+        .offset(y: reduceMotion ? 0 : (isHovered ? -1 : 0))
+        .onChange(of: value) { _ in
+            if !reduceMotion {
+                withAnimation(.easeOut(duration: 0.1)) {
+                    valueChanged = true
+                }
+                withAnimation(.easeOut(duration: 0.15).delay(0.1)) {
+                    valueChanged = false
+                }
+            }
         }
     }
 }
@@ -112,151 +374,188 @@ struct LiquidMomentumRing: View {
     let projectPath: String
     let status: Project.ActivityStatus
     let isPaused: Bool
+    let isCompleted: Bool
+    var size: CGFloat = 300
     
     @State private var animateRing = false
     @State private var particleOffset: CGFloat = 0
+    @State private var glowPulse: Double = 1.0
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     
+    private var ringSize: CGFloat {
+        size * 0.6
+    }
+    
+    private var glowSize: CGFloat {
+        size * 0.75
+    }
+    
+    private var lineWidth: CGFloat {
+        size * 0.06
+    }
+    
+    // Inner content area should be smaller than ring inner diameter
+    private var innerContentSize: CGFloat {
+        ringSize - (lineWidth * 1.5) // More generous space for text
+    }
+    
+    private var scoreSize: CGFloat {
+        size * 0.18 // Slightly larger than 0.16 but smaller than original 0.2
+    }
+    
+    private var titleSize: CGFloat {
+        size * 0.12
+    }
+    
+    private var pathSize: CGFloat {
+        size * 0.04
+    }
+    
     var body: some View {
-        VStack(spacing: 20) {
-            // 3D Depth Gradient Ring with Neon Halo
+        VStack(spacing: size * 0.08) {
+            // 3D Depth Gradient Ring with Soft Inner Glow
             ZStack {
-                // Outer subtle halo
+                // Soft inner glow with subtle pulse (faint, not outer halo)
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                accentColor.opacity(0.08),
-                                accentColor.opacity(0.03),
+                                accentColor.opacity(0.04 * glowPulse),
+                                accentColor.opacity(0.015 * glowPulse),
                                 Color.clear
                             ],
                             center: .center,
-                            startRadius: 70,
-                            endRadius: 120
+                            startRadius: glowSize * 0.3,
+                            endRadius: glowSize * 0.5
                         )
                     )
-                    .frame(width: 240, height: 240)
-                    .blur(radius: 30)
+                    .frame(width: glowSize, height: glowSize)
+                    .blur(radius: size * 0.08)
                 
-                // Background track
+                // Background track (softer)
                 Circle()
                     .stroke(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.05),
+                                Color.white.opacity(0.04),
                                 Color.white.opacity(0.02)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 18
+                        lineWidth: lineWidth
                     )
-                    .frame(width: 160, height: 160)
-                    .shadow(color: Color.black.opacity(0.3), radius: 10, x: 0, y: 5)
+                    .frame(width: ringSize, height: ringSize)
+                    .shadow(color: Color.black.opacity(0.4), radius: size * 0.03, x: 0, y: size * 0.015)
                 
-                // Inner shadow for depth
-                Circle()
-                    .stroke(
-                        Color.black.opacity(0.2),
-                        lineWidth: 2
-                    )
-                    .frame(width: 160, height: 160)
-                    .blur(radius: 4)
-                
-                // Liquid gauge ring with 3D depth
+                // Liquid gauge ring with reduced brightness (20% less)
                 Circle()
                     .trim(from: 0, to: animateRing ? CGFloat(score / 100) : 0)
                     .stroke(
                         AngularGradient(
                             colors: [
-                                accentColor,
-                                accentColor.opacity(0.8),
-                                accentColor.opacity(0.6),
-                                accentColor
+                                accentColor.opacity(0.85),
+                                accentColor.opacity(0.7),
+                                accentColor.opacity(0.55),
+                                accentColor.opacity(0.85)
                             ],
                             center: .center,
                             startAngle: .degrees(-90),
                             endAngle: .degrees(270)
                         ),
-                        style: StrokeStyle(lineWidth: 18, lineCap: .round)
+                        style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                     )
-                    .frame(width: 160, height: 160)
+                    .frame(width: ringSize, height: ringSize)
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: accentColor.opacity(0.15), radius: 6, x: 0, y: 0)
-                    .shadow(color: accentColor.opacity(0.1), radius: 8, x: 0, y: 4)
+                    .shadow(color: accentColor.opacity(0.08), radius: size * 0.015, x: 0, y: 0)
                     .overlay(
-                        // Shimmer particle effect (subtle)
+                        // Shimmer particle effect (more subtle)
                         Circle()
-                            .trim(from: particleOffset, to: particleOffset + 0.02)
-                            .stroke(Color.white.opacity(0.8), lineWidth: 4)
-                            .frame(width: 160, height: 160)
+                            .trim(from: particleOffset, to: particleOffset + 0.015)
+                            .stroke(Color.white.opacity(0.5), lineWidth: lineWidth * 0.2)
+                            .frame(width: ringSize, height: ringSize)
                             .rotationEffect(.degrees(-90))
                             .blur(radius: 2)
-                            .opacity(reduceMotion ? 0 : 0.6)
+                            .opacity(reduceMotion ? 0 : 0.4)
                     )
                 
-                // Center content with blurred glow
-                VStack(spacing: 6) {
+                // Center content with softer glow - constrained to inner area
+                VStack(spacing: size * 0.02) {
                     ZStack {
-                        // Blurred glow behind digits
+                        // Softer blurred glow behind digits
                         Text("\(Int(score))%")
-                            .font(.system(size: 52, weight: .heavy, design: .rounded))
+                            .font(.system(size: scoreSize, weight: .bold, design: .rounded))
                             .foregroundColor(accentColor)
-                            .blur(radius: 20)
-                            .opacity(0.5)
+                            .blur(radius: size * 0.06)
+                            .opacity(0.3)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .fixedSize(horizontal: true, vertical: false)
                         
-                        // Crisp digits with gradient
+                        // Crisp digits with softer gradient
                         Text("\(Int(score))%")
-                            .font(.system(size: 52, weight: .heavy, design: .rounded))
+                            .font(.system(size: scoreSize, weight: .bold, design: .rounded))
                             .foregroundStyle(
                                 LinearGradient(
                                     colors: [
-                                        accentColor,
-                                        accentColor.opacity(0.8)
+                                        accentColor.opacity(0.95),
+                                        accentColor.opacity(0.75)
                                     ],
                                     startPoint: .top,
                                     endPoint: .bottom
                                 )
                             )
-                            .shadow(color: accentColor.opacity(0.3), radius: 8, x: 0, y: 4)
+                            .shadow(color: accentColor.opacity(0.2), radius: size * 0.02, x: 0, y: size * 0.01)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                     
-                    Text("MOMENTUM")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.5))
+                    Text("Momentum")
+                        .font(.system(size: size * 0.04, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.6))
                         .tracking(2.5)
                 }
+                .frame(width: innerContentSize, height: innerContentSize)
             }
             .onAppear {
-                withAnimation(.spring(response: 1.2, dampingFraction: 0.7)) {
+                withAnimation(.spring(response: 1.2, dampingFraction: 0.7).delay(0.1)) {
                     animateRing = true
                 }
                 
                 if !reduceMotion {
-                    withAnimation(.linear(duration: 3).repeatForever(autoreverses: false)) {
+                    withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
                         particleOffset = 1.0
+                    }
+                    
+                    // Subtle glow pulse every 6 seconds (±5% brightness)
+                    withAnimation(
+                        .easeInOut(duration: 6)
+                        .repeatForever(autoreverses: true)
+                    ) {
+                        glowPulse = 1.05
                     }
                 }
             }
             
-            // Project Info
-            VStack(spacing: 8) {
+            // Project Info (softer typography)
+            VStack(spacing: size * 0.025) {
                 Text(projectName)
-                    .font(.system(size: 32, weight: .heavy, design: .rounded))
+                    .font(.system(size: titleSize, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                 
                 Text(projectPath)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.4))
+                    .font(.system(size: pathSize, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.6))
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 30)
+                    .padding(.horizontal, size * 0.1)
             }
             
             // Status Capsule Pill
-            GlassStatusPill(status: status, isPaused: isPaused)
+            GlassStatusPill(status: status, isPaused: isPaused, isCompleted: isCompleted, size: size)
         }
     }
 }
@@ -266,45 +565,97 @@ struct LiquidMomentumRing: View {
 struct GlassStatusPill: View {
     let status: Project.ActivityStatus
     let isPaused: Bool
+    let isCompleted: Bool
+    var size: CGFloat = 300
+    
+    private var iconSize: CGFloat {
+        size * 0.04
+    }
+    
+    private var fontSize: CGFloat {
+        size * 0.05
+    }
+    
+    private var hPadding: CGFloat {
+        size * 0.06
+    }
+    
+    private var vPadding: CGFloat {
+        size * 0.03
+    }
     
     var body: some View {
-        HStack(spacing: 12) {
-            // Status pill
-            HStack(spacing: 8) {
-                Image(systemName: status.icon)
-                    .font(.system(size: 11, weight: .semibold))
-                Text(status.rawValue)
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
+        HStack(spacing: size * 0.04) {
+            // Status pill with inner glow instead of outer
+            HStack(spacing: size * 0.03) {
+                Image(systemName: displayIcon)
+                    .font(.system(size: iconSize, weight: .medium))
+                Text(statusTitle)
+                    .font(.system(size: fontSize, weight: .medium, design: .rounded))
             }
             .foregroundColor(statusColor)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, hPadding)
+            .padding(.vertical, vPadding)
             .background(
                 ZStack {
-                    Capsule()
-                        .fill(.ultraThinMaterial)
-                        .opacity(0.6)
-                    
-                    Capsule()
-                        .fill(statusColor.opacity(0.15))
+                    // Active status and completed use gradient, others use glass
+                    if status == .active || isCompleted {
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: isCompleted ? [
+                                        Color.green.opacity(0.8),
+                                        Color.green.opacity(0.6)
+                                    ] : [
+                                        DynamicAccentColor.mediumGreen,
+                                        Color(hex: "1A6F43")
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    } else {
+                        // Soft glass base for other statuses
+                        Capsule()
+                            .fill(Color.white.opacity(0.04))
+                        
+                        // Subtle gradient overlay
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        statusColor.opacity(0.15),
+                                        statusColor.opacity(0.08)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                        
+                        // Inner shadow for depth
+                        Capsule()
+                            .stroke(Color.black.opacity(0.1), lineWidth: 1)
+                            .blur(radius: 2)
+                            .offset(y: 1)
+                    }
                 }
             )
             .overlay(
                 Capsule()
-                    .stroke(statusColor.opacity(0.3), lineWidth: 1)
+                    .stroke(statusColor.opacity(status == .active ? 0.4 : 0.25), lineWidth: 1)
             )
             
             // Paused pill (if paused)
             if isPaused {
-                HStack(spacing: 6) {
+                HStack(spacing: size * 0.02) {
                     Image(systemName: "pause.circle.fill")
-                        .font(.system(size: 11))
+                        .font(.system(size: iconSize))
                     Text("Paused")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(.system(size: fontSize, weight: .medium, design: .rounded))
                 }
                 .foregroundColor(.gray)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.horizontal, hPadding * 0.9)
+                .padding(.vertical, vPadding)
                 .background(
                     Capsule()
                         .fill(.ultraThinMaterial)
@@ -319,294 +670,273 @@ struct GlassStatusPill: View {
     }
     
     private var statusColor: Color {
-        DynamicAccentColor.forStatus(status)
+        if isCompleted {
+            return .white
+        }
+        return DynamicAccentColor.forStatus(status)
+    }
+    
+    private var displayIcon: String {
+        if isCompleted {
+            return "checkmark.circle.fill"
+        }
+        return status.icon
+    }
+    
+    private var statusTitle: String {
+        if isCompleted {
+            return "Completed"
+        }
+        // Title Case instead of ALL CAPS
+        return status.rawValue.prefix(1).uppercased() + status.rawValue.dropFirst()
     }
 }
 
-// MARK: - Floating Stats Row
-
-struct FloatingStatsRow: View {
-    let project: Project
-    let accentColor: Color
-    
-    var body: some View {
-        HStack(spacing: 16) {
-            FloatingStatCard(
-                icon: "calendar.circle.fill",
-                title: "Last Activity",
-                value: lastActivityText,
-                color: .blue
-            )
-            
-            FloatingStatCard(
-                icon: "arrow.triangle.branch",
-                title: "Total Commits",
-                value: "\(project.commitCount)",
-                color: Color(red: 0.22, green: 0.741, blue: 0.969)
-            )
-            
-            FloatingStatCard(
-                icon: "clock.fill",
-                title: "Days Inactive",
-                value: project.daysSinceLastActivity == Int.max ? "∞" : "\(project.daysSinceLastActivity)",
-                color: project.daysSinceLastActivity > 7 ? .orange : accentColor
-            )
-        }
-    }
-    
-    private var lastActivityText: String {
-        guard project.lastActivityDate != nil else { return "Never" }
-        let days = project.daysSinceLastActivity
-        if days == 0 { return "Today" }
-        if days == 1 { return "1d ago" }
-        return "\(days)d"
-    }
-}
-
-struct FloatingStatCard: View {
-    let icon: String
-    let title: String
-    let value: String
-    let color: Color
-    
-    @State private var isHovered = false
-    @State private var parallaxOffset: CGFloat = 0
-    @Environment(\.accessibilityReduceMotion) var reduceMotion
-    
-    var body: some View {
-        VStack(spacing: 14) {
-            // Icon with soft spotlight background
-            ZStack {
-                // Spotlight glow
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                color.opacity(0.2),
-                                color.opacity(0.1),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 20,
-                            endRadius: 40
-                        )
-                    )
-                    .frame(width: 80, height: 80)
-                    .blur(radius: 10)
-                
-                // Icon
-                Image(systemName: icon)
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [color, color.opacity(0.7)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-            }
-            .scaleEffect(isHovered && !reduceMotion ? 1.15 : 1.0)
-            
-            // Value
-            Text(value)
-                .font(.system(size: 32, weight: .heavy, design: .rounded))
-                .foregroundColor(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            
-            // Label
-            Text(title)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.white.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 200)
-        .padding(.horizontal, 16)
-        .glassCard(cornerRadius: 28, borderOpacity: 0.12, shadowRadius: 25, shadowOpacity: isHovered ? 0.4 : 0.25)
-        .offset(y: reduceMotion ? 0 : parallaxOffset)
-        .hoverLift(amount: 4, scale: 1.03)
-        .animation(.spring(response: 0.35, dampingFraction: 0.7), value: isHovered)
-        .onHover { hovering in
-            isHovered = hovering
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                parallaxOffset = hovering ? -2 : 0
-            }
-        }
-    }
-}
-
-// MARK: - Glass Goals Section
+// MARK: - Modern Split-Pane Goals Section
 
 struct GlassGoalsSection: View {
     let project: Project
+    let projectStore: ProjectStore
     @Binding var showingGoalSheet: Bool
-    @State private var isExpanded = true
+    @State private var isAddHovered = false
+    @State private var pulseAnimation = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     
     var activeGoalsCount: Int {
         project.goals.filter { !$0.isCompleted }.count
     }
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
-            Button(action: { withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { isExpanded.toggle() } }) {
-                HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 0) {
+            // Horizontal gradient divider
+            Rectangle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.clear,
+                            Color.white.opacity(0.06),
+                            Color.clear
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(height: 1)
+                .padding(.bottom, 24)
+            
+            // Header row (🎯 Goals + Add Goal)
+            HStack {
+                HStack(spacing: 10) {
                     Image(systemName: "target")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.blue)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(DynamicAccentColor.primaryGreen)
                     
                     Text("Goals")
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.7))
                     
                     if !project.goals.isEmpty {
                         Text("\(activeGoalsCount)/\(project.goals.count)")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(.blue)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(DynamicAccentColor.primaryGreen)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
                             .background(
                                 Capsule()
-                                    .fill(.ultraThinMaterial)
-                                    .opacity(0.5)
-                            )
-                            .overlay(
-                                Capsule()
-                                    .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                                    .fill(DynamicAccentColor.primaryGreen.opacity(0.1))
                             )
                     }
-                    
-                    Spacer()
-                    
-                    // Expand/collapse chevron
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.5))
-                        .rotationEffect(.degrees(isExpanded ? 0 : -90))
-                    
-                    // Manage button
-                    Button(action: { showingGoalSheet = true }) {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.blue)
+                }
+                
+                Spacer()
+                
+                // Add Goal button
+                Button(action: { showingGoalSheet = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Add Goal")
+                            .font(.system(size: 13, weight: .medium))
                     }
-                    .buttonStyle(.plain)
-                    .padding(.leading, 8)
+                    .foregroundColor(DynamicAccentColor.primaryGreen.opacity(isAddHovered ? 1.0 : 0.8))
+                }
+                .buttonStyle(.plain)
+                .onHover { hovering in
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        isAddHovered = hovering
+                    }
                 }
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 8)
+            .padding(.bottom, 16)
             
-            if isExpanded {
-                if project.goals.isEmpty {
-                    // Empty state
-                    Button(action: { showingGoalSheet = true }) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.blue)
-                            
-                            Text("Add goals for this project")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundColor(.white.opacity(0.8))
-                            
-                            Spacer()
-                        }
-                        .padding(20)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(.ultraThinMaterial)
-                                .opacity(0.3)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(
-                                    Color.blue.opacity(0.3),
-                                    style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
-                                )
-                        )
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    // Goals list
-                    VStack(spacing: 10) {
-                        ForEach(project.goals.prefix(3)) { goal in
-                            TranslucentGoalPill(goal: goal)
-                        }
+            // Content area
+            if project.goals.isEmpty {
+                // Centered empty state with glowing ripple
+                Button(action: { showingGoalSheet = true }) {
+                    VStack(spacing: 16) {
+                        Spacer()
                         
-                        if project.goals.count > 3 {
-                            Button(action: { showingGoalSheet = true }) {
-                                Text("View all \(project.goals.count) goals")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundColor(.blue)
-                                    .padding(.top, 4)
+                        ZStack {
+                            // Glowing ripple animation
+                            if !reduceMotion {
+                                Circle()
+                                    .stroke(DynamicAccentColor.primaryGreen.opacity(0.2), lineWidth: 2)
+                                    .frame(width: 60, height: 60)
+                                    .scaleEffect(pulseAnimation ? 1.4 : 1.0)
+                                    .opacity(pulseAnimation ? 0 : 0.6)
                             }
-                            .buttonStyle(.plain)
+                            
+                            Circle()
+                                .fill(DynamicAccentColor.primaryGreen.opacity(0.08))
+                                .frame(width: 60, height: 60)
+                            
+                            Image(systemName: "plus")
+                                .font(.system(size: 24, weight: .light))
+                                .foregroundColor(DynamicAccentColor.primaryGreen.opacity(isAddHovered ? 1.0 : 0.8))
+                        }
+                        .scaleEffect(isAddHovered ? 1.05 : 1.0)
+                        
+                        Text("Add goals for this project")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.white.opacity(0.5))
+                        
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                .buttonStyle(.plain)
+                .onHover { hovering in
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        isAddHovered = hovering
+                    }
+                }
+                .onAppear {
+                    if !reduceMotion {
+                        withAnimation(
+                            .easeOut(duration: 3)
+                            .repeatForever(autoreverses: false)
+                        ) {
+                            pulseAnimation = true
                         }
                     }
+                }
+            } else {
+                // Translucent list-style rows
+                ScrollView {
+                    VStack(spacing: 6) {
+                        ForEach(project.goals) { goal in
+                            ModernGoalRow(goal: goal, project: project, projectStore: projectStore)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 16)
                 }
             }
         }
-        .padding(24)
-        .glassCard(cornerRadius: 24, borderOpacity: 0.08)
+        .frame(maxHeight: .infinity)
     }
 }
 
-struct TranslucentGoalPill: View {
+// MARK: - Modern Goal Row (macOS Settings Style)
+
+struct ModernGoalRow: View {
     let goal: ProjectGoal
-    
+    let project: Project
+    let projectStore: ProjectStore
+    @State private var isHovered = false
+    @State private var isDeleteHovered = false
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     var body: some View {
-        HStack(spacing: 14) {
-            // Checkbox
-            Image(systemName: goal.isCompleted ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundColor(goal.isCompleted ? .green : .blue)
-            
+        HStack(spacing: 12) {
+            // Delete button (x) on the left
+            Button(action: {
+                projectStore.deleteGoal(goal, in: project)
+            }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(isDeleteHovered ? .white.opacity(0.9) : .white.opacity(0.5))
+                    .frame(width: 20, height: 20)
+                    .background(
+                        Circle()
+                            .fill(isDeleteHovered ? Color.red.opacity(0.8) : Color.white.opacity(0.05))
+                    )
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering in
+                withAnimation(.easeOut(duration: 0.15)) {
+                    isDeleteHovered = hovering
+                }
+            }
+
+            // Accent dot indicator
+            Circle()
+                .fill(goal.isCompleted ? DynamicAccentColor.successAccent : DynamicAccentColor.primaryGreen)
+                .frame(width: 6, height: 6)
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(goal.text)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(goal.isCompleted ? .white.opacity(0.5) : .white.opacity(0.9))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(goal.isCompleted ? .white.opacity(0.4) : .white.opacity(0.85))
                     .strikethrough(goal.isCompleted)
                     .lineLimit(2)
-                
+
                 if let deadline = goal.deadline {
-                    HStack(spacing: 5) {
+                    HStack(spacing: 4) {
                         Image(systemName: "calendar")
-                            .font(.system(size: 10))
+                            .font(.system(size: 9))
                         Text(deadline, style: .date)
-                            .font(.system(size: 11))
+                            .font(.system(size: 10))
                     }
                     .foregroundColor(
                         isOverdue(deadline) && !goal.isCompleted
-                            ? Color(red: 1.0, green: 0.4, blue: 0.4)
-                            : Color(red: 0.6, green: 0.7, blue: 0.85)
+                            ? Color(hex: "F87171")
+                            : .white.opacity(0.5)
                     )
                 }
             }
-            
+
             Spacer()
-            
-            // Progress dot/streak
-            if !goal.isCompleted {
-                Circle()
-                    .fill(Color.blue)
-                    .frame(width: 6, height: 6)
+
+            // Completion toggle button
+            Button(action: {
+                projectStore.toggleGoal(goal, in: project)
+            }) {
+                Image(systemName: goal.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(goal.isCompleted ? DynamicAccentColor.successAccent : DynamicAccentColor.primaryGreen.opacity(0.6))
+                    .frame(width: 20, height: 20)
             }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
+        .contentShape(Rectangle())
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(.ultraThinMaterial)
-                .opacity(goal.isCompleted ? 0.2 : 0.4)
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.white.opacity(goal.isCompleted ? 0.015 : 0.02))
+                .overlay(
+                    // Hover highlight with green tint
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(
+                            isHovered
+                                ? DynamicAccentColor.primaryGreen.opacity(0.04)
+                                : Color.clear
+                        )
+                )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.04), lineWidth: 0.5)
         )
+        .scaleEffect(isHovered && !reduceMotion ? 1.002 : 1.0)
+        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
-    
+
     private func isOverdue(_ deadline: Date) -> Bool {
         deadline < Date()
     }
@@ -617,11 +947,19 @@ struct TranslucentGoalPill: View {
 struct FloatingActionBar: View {
     let project: Project
     let togglePause: () -> Void
+    let toggleComplete: () -> Void
     let refreshProject: () -> Void
     let showDeleteAlert: () -> Void
     
     var body: some View {
         HStack(spacing: 10) {
+            FloatingActionButton(
+                icon: project.isCompleted ? "arrow.uturn.backward.circle.fill" : "checkmark.circle.fill",
+                color: project.isCompleted ? .orange : .green,
+                tooltip: project.isCompleted ? "Mark as Ongoing" : "Mark as Completed",
+                action: toggleComplete
+            )
+            
             FloatingActionButton(
                 icon: project.isPaused ? "play.circle.fill" : "pause.circle.fill",
                 color: project.isPaused ? .green : .orange,

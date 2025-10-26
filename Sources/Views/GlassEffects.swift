@@ -21,9 +21,9 @@ import SwiftUI
 
 struct GlassCard: ViewModifier {
     var cornerRadius: CGFloat = 24
-    var borderOpacity: Double = 0.1
-    var shadowRadius: CGFloat = 30
-    var shadowOpacity: Double = 0.25
+    var borderOpacity: Double = 0.08
+    var shadowRadius: CGFloat = 12
+    var shadowOpacity: Double = 0.4
     @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     @Environment(\.colorSchemeContrast) var colorSchemeContrast
     
@@ -33,23 +33,23 @@ struct GlassCard: ViewModifier {
         content
             .background(
                 ZStack {
-                    // Ultra-dark glass background
+                    // Softer translucent background
                     if reduceTransparency || highContrast {
                         RoundedRectangle(cornerRadius: cornerRadius)
-                            .fill(Color(white: 0.15))
+                            .fill(Color(white: 0.12))
                     } else {
+                        // Translucent neutral layer
                         RoundedRectangle(cornerRadius: cornerRadius)
-                            .fill(.ultraThinMaterial)
-                            .opacity(0.6)
+                            .fill(Color.white.opacity(0.05))
                     }
                     
-                    // Subtle highlight edge (light bleed) - disabled in high contrast
+                    // Subtle highlight edge - disabled in high contrast
                     if !highContrast {
                         RoundedRectangle(cornerRadius: cornerRadius)
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color.white.opacity(0.15),
+                                        Color.white.opacity(0.08),
                                         Color.clear,
                                         Color.clear
                                     ],
@@ -64,14 +64,14 @@ struct GlassCard: ViewModifier {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
                         Color.white.opacity(highContrast ? 0.5 : borderOpacity),
-                        lineWidth: highContrast ? 2 : 1
+                        lineWidth: highContrast ? 2 : 0.5
                     )
             )
             .shadow(
                 color: Color.black.opacity(shadowOpacity),
                 radius: shadowRadius,
                 x: 0,
-                y: shadowRadius / 3
+                y: 4
             )
     }
 }
@@ -124,50 +124,101 @@ struct GlassPill: ViewModifier {
     }
 }
 
-// MARK: - Dynamic Accent Colors
+// MARK: - Dynamic Accent Colors (Balanced Green Palette)
 
 struct DynamicAccentColor {
+    // Primary green palette
+    static let primaryGreen = Color(hex: "3DF07C")      // Primary green
+    static let activeGlow = Color(hex: "40F54A")        // Active glow
+    static let successAccent = Color(hex: "5AF57D")     // Success (100%)
+    static let mediumGreen = Color(hex: "2DC969")       // Medium green
+    static let mutedGreen = Color(hex: "1F9D50")        // Muted green
+    
+    // Icon mood tints
+    static let limeTint = Color(hex: "3DF07C")          // Last Activity
+    static let mintBlueTint = Color(hex: "5DE3B6")      // Commits
+    static let amberTint = Color(hex: "E9B85C")         // Days Inactive
+    
     static func forMomentum(_ score: Double) -> Color {
-        if score > 70 { return .green }      // Active
-        if score > 40 { return .blue }       // Cooling
-        if score > 20 { return .orange }     // Inactive
-        return .red                           // Dormant
+        if score > 70 { return successAccent }           // Active: vivid green
+        if score > 40 { return primaryGreen }            // Cooling: primary green
+        if score > 20 { return Color(hex: "FBBF24") }    // Amber (Inactive)
+        return Color(hex: "F87171")                      // Soft red (Dormant)
     }
     
     static func forStatus(_ status: Project.ActivityStatus) -> Color {
         switch status {
-        case .active: return .green
-        case .cooling: return .blue
-        case .inactive: return .orange
-        case .dormant: return .red
+        case .active: return successAccent               // Vivid green
+        case .cooling: return primaryGreen               // Primary green
+        case .inactive: return Color(hex: "FBBF24")      // Amber
+        case .dormant: return Color(hex: "F87171")       // Soft red
         }
     }
 }
 
-// MARK: - Static Gradient Background
+// MARK: - Hex Color Extension
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (255, 0, 0, 0)
+        }
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
+// MARK: - Ambient Gradient Background (Enhanced Depth)
 
 struct AmbientGradientBackground: View {
     let accentColor: Color
     
     var body: some View {
         ZStack {
-            // Deep space gray with very subtle tint
+            // Deep gradient background with enhanced depth (#111213 → #0C0C0D)
             LinearGradient(
                 colors: [
-                    Color(hue: 0.0, saturation: 0.02, brightness: 0.10),
-                    Color(hue: 0.0, saturation: 0.01, brightness: 0.08)
+                    Color(hex: "111213"),
+                    Color(hex: "0C0C0D")
                 ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                startPoint: .top,
+                endPoint: .bottom
             )
             
-            // Very subtle ambient accent glow (static)
+            // Top-down gradient fade (lighter top, darker bottom for grounding)
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.02),
+                    Color.clear,
+                    Color.black.opacity(0.15)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            
+            // Subtle ambient accent glow (green-focused)
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            accentColor.opacity(0.03),
-                            accentColor.opacity(0.01),
+                            accentColor.opacity(0.018),
+                            accentColor.opacity(0.008),
                             Color.clear
                         ],
                         center: .center,
@@ -175,7 +226,7 @@ struct AmbientGradientBackground: View {
                         endRadius: 400
                     )
                 )
-                .blur(radius: 80)
+                .blur(radius: 102)
         }
     }
 }

@@ -1,12 +1,14 @@
 import SwiftUI
 import AppKit
 
+@MainActor
 class MenuBarManager: NSObject {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     
     override init() {
         super.init()
+        Self.shared = self
         setupMenuBar()
     }
     
@@ -21,9 +23,11 @@ class MenuBarManager: NSObject {
         
         // Setup popover
         popover = NSPopover()
-        popover?.contentSize = NSSize(width: 400, height: 500)
+        popover?.contentSize = NSSize(width: 400, height: 700)
         popover?.behavior = .transient
-        popover?.contentViewController = NSHostingController(rootView: MenuBarPopoverView())
+        popover?.contentViewController = NSHostingController(rootView: MenuBarPopoverView()
+            .environmentObject(ProjectStore.shared)
+            .environmentObject(SettingsManager.shared))
         
         // Update menu bar icon based on projects
         updateStatusIcon()
@@ -31,11 +35,12 @@ class MenuBarManager: NSObject {
     
     @objc private func togglePopover() {
         guard let button = statusItem?.button else { return }
-        
+
         if let popover = popover {
             if popover.isShown {
                 popover.performClose(nil)
             } else {
+                updateStatusIcon()
                 popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             }
         }
@@ -43,18 +48,21 @@ class MenuBarManager: NSObject {
     
     private func updateStatusIcon() {
         Task { @MainActor in
-            let projects = ProjectStore.shared.projects
-            let inactiveCount = projects.filter { $0.daysSinceLastActivity > 7 && !$0.isPaused }.count
-            
             if let button = statusItem?.button {
-                if inactiveCount > 0 {
-                    button.image = NSImage(systemSymbolName: "exclamationmark.triangle.fill", accessibilityDescription: "Momentum - \(inactiveCount) inactive")
-                } else {
-                    button.image = NSImage(systemSymbolName: "chart.line.uptrend.xyaxis", accessibilityDescription: "Momentum")
-                }
+                button.image = NSImage(systemSymbolName: "chart.line.uptrend.xyaxis", accessibilityDescription: "Momentum")
             }
         }
     }
+
+    static func updateIcon() {
+        Task { @MainActor in
+            if let button = Self.shared?.statusItem?.button {
+                button.image = NSImage(systemSymbolName: "chart.line.uptrend.xyaxis", accessibilityDescription: "Momentum")
+            }
+        }
+    }
+
+    private static var shared: MenuBarManager?
 }
 
 struct MenuBarPopoverView: View {
@@ -107,10 +115,10 @@ struct MenuBarPopoverView: View {
             
             Divider()
             
-            // Recent projects
+            // All projects
             ScrollView {
                 VStack(spacing: 8) {
-                    ForEach(projectStore.projects.prefix(5)) { project in
+                    ForEach(projectStore.projects) { project in
                         MenuBarProjectRow(project: project)
                     }
                 }
@@ -138,7 +146,7 @@ struct MenuBarPopoverView: View {
             .padding()
             .background(Color(NSColor.controlBackgroundColor))
         }
-        .frame(width: 400, height: 500)
+        .frame(width: 400, height: 700)
     }
     
     private func openMainWindow() {

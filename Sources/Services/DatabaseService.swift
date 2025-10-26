@@ -53,9 +53,9 @@ class DatabaseService {
                 t.column(fileChangeCount, defaultValue: 0)
             })
             
-            print("✅ Database initialized at: \(dbPath)")
+            print("Database initialized at: \(dbPath)")
         } catch {
-            print("❌ Database setup error: \(error)")
+            print("Database setup error: \(error)")
         }
     }
     

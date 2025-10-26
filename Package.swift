@@ -10,7 +10,7 @@ let package = Package(
         .executable(name: "Momentum", targets: ["Momentum"])
     ],
     dependencies: [
-        .package(url: "https://github.com/stephencelis/SQLite.swift.git", from: "0.14.1")
+        .package(url: "https://github.com/stephencelis/SQLite.swift.git", exact: "0.14.1")
     ],
     targets: [
         .executableTarget(

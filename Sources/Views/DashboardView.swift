@@ -1,18 +1,33 @@
 import SwiftUI
 
+enum ProjectFilter: Equatable {
+    case all
+    case status(Project.ActivityStatus)
+    case completed
+}
+
 struct DashboardView: View {
     @EnvironmentObject var projectStore: ProjectStore
     @EnvironmentObject var settingsManager: SettingsManager
     @State private var selectedProjectID: Project.ID?
     @State private var searchText = ""
-    @State private var filterStatus: Project.ActivityStatus?
+    @State private var filterStatus: ProjectFilter = .all
     @State private var showingAddProject = false
     @State private var aiInsight: String?
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     
     var filteredProjects: [Project] {
-        var filtered = projectStore.projects
+        var filtered: [Project]
+        
+        switch filterStatus {
+        case .all:
+            filtered = projectStore.projects.filter { !$0.isCompleted }
+        case .status(let status):
+            filtered = projectStore.projects.filter { $0.activityStatus == status && !$0.isCompleted }
+        case .completed:
+            filtered = projectStore.projects.filter { $0.isCompleted }
+        }
         
         if !searchText.isEmpty {
             filtered = filtered.filter {
@@ -20,8 +35,24 @@ struct DashboardView: View {
             }
         }
         
-        if let status = filterStatus {
-            filtered = filtered.filter { $0.activityStatus == status }
+        return filtered
+    }
+    
+    var shouldShowCompletedSection: Bool {
+        // Only show completed section when filter is "All" (not in completed filter view)
+        if case .all = filterStatus {
+            return !projectStore.projects.filter { $0.isCompleted }.isEmpty
+        }
+        return false
+    }
+    
+    var filteredCompletedProjects: [Project] {
+        var filtered = projectStore.projects.filter { $0.isCompleted }
+        
+        if !searchText.isEmpty {
+            filtered = filtered.filter {
+                $0.name.localizedCaseInsensitiveContains(searchText)
+            }
         }
         
         return filtered
@@ -31,16 +62,21 @@ struct DashboardView: View {
         NavigationSplitView {
             // MARK: - Modernized Sidebar
             ZStack {
-                // Subtle ambient gradient for sidebar
+                // Softer ambient gradient for sidebar
                 LinearGradient(
                     colors: [
-                        Color(hue: 0.0, saturation: 0.02, brightness: 0.10),
-                        Color(hue: 0.0, saturation: 0.01, brightness: 0.08)
+                        Color(hex: "141416"),
+                        Color(hex: "121214")
                     ],
                     startPoint: .top,
                     endPoint: .bottom
                 )
                 .ignoresSafeArea()
+                
+                // Subtle lightening overlay
+                Rectangle()
+                    .fill(Color.white.opacity(0.03))
+                    .ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // Translucent Search Field
@@ -57,13 +93,82 @@ struct DashboardView: View {
                     .padding(.top, 14)
                     
                     // Project List
-                    if filteredProjects.isEmpty {
-                        EmptySidebarState()
-                    } else {
-                        GlassProjectList(
-                            projects: filteredProjects,
-                            selectedProjectID: $selectedProjectID
+                    if filteredProjects.isEmpty && (!shouldShowCompletedSection || filteredCompletedProjects.isEmpty) {
+                        EmptySidebarState(
+                            totalProjects: projectStore.projects.count,
+                            filterStatus: filterStatus
                         )
+                    } else {
+                        ScrollView {
+                            VStack(spacing: 0) {
+                                // Main filtered projects
+                                if !filteredProjects.isEmpty {
+                                    VStack(spacing: 8) {
+                                        ForEach(filteredProjects) { project in
+                                            GlassProjectRow(
+                                                project: project,
+                                                isSelected: selectedProjectID == project.id
+                                            )
+                                            .onTapGesture {
+                                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                    selectedProjectID = project.id
+                                                }
+                                            }
+                                        }
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.top, 12)
+                                }
+
+                                // Completed Projects Section (only shown when filter is "All")
+                                if shouldShowCompletedSection {
+                                    VStack(spacing: 8) {
+                                        // Section Header
+                                        HStack {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.system(size: 12, weight: .semibold))
+                                                .foregroundColor(.green.opacity(0.8))
+
+                                            Text("Completed")
+                                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.white.opacity(0.7))
+
+                                            Spacer()
+
+                                            Text("\(filteredCompletedProjects.count)")
+                                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                                .foregroundColor(.green.opacity(0.7))
+                                                .padding(.horizontal, 7)
+                                                .padding(.vertical, 2)
+                                                .background(
+                                                    Capsule()
+                                                        .fill(Color.green.opacity(0.15))
+                                                )
+                                        }
+                                        .padding(.horizontal, 14)
+                                        .padding(.top, filteredProjects.isEmpty ? 12 : 20)
+                                        .padding(.bottom, 8)
+
+                                        // Completed Projects List
+                                        VStack(spacing: 8) {
+                                            ForEach(filteredCompletedProjects) { project in
+                                                GlassProjectRow(
+                                                    project: project,
+                                                    isSelected: selectedProjectID == project.id
+                                                )
+                                                .onTapGesture {
+                                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                                        selectedProjectID = project.id
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        .padding(.horizontal, 14)
+                                    }
+                                    .padding(.bottom, 12)
+                                }
+                            }
+                        }
                     }
                     
                     Divider()
@@ -213,33 +318,55 @@ struct FocusHelper: NSViewRepresentable {
 
 struct TahoeStatusFilters: View {
     let projects: [Project]
-    @Binding var filterStatus: Project.ActivityStatus?
+    @Binding var filterStatus: ProjectFilter
     
     var body: some View {
         VStack(spacing: 10) {
             TahoeFilterButton(
                 title: "All",
-                count: projects.count,
-                isSelected: filterStatus == nil,
+                count: projects.filter { !$0.isCompleted }.count,
+                isSelected: {
+                    if case .all = filterStatus { return true }
+                    return false
+                }(),
                 icon: "circle.grid.3x3.fill",
                 color: .blue
             ) {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    filterStatus = nil
+                    filterStatus = .all
                 }
             }
             
             ForEach(Project.ActivityStatus.allCases, id: \.self) { status in
                 TahoeFilterButton(
                     title: status.rawValue,
-                    count: projects.filter { $0.activityStatus == status }.count,
-                    isSelected: filterStatus == status,
+                    count: projects.filter { $0.activityStatus == status && !$0.isCompleted }.count,
+                    isSelected: {
+                        if case .status(let s) = filterStatus, s == status { return true }
+                        return false
+                    }(),
                     icon: status.icon,
                     color: colorForStatus(status)
                 ) {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                        filterStatus = status
+                        filterStatus = .status(status)
                     }
+                }
+            }
+            
+            // Completed filter
+            TahoeFilterButton(
+                title: "Completed",
+                count: projects.filter { $0.isCompleted }.count,
+                isSelected: {
+                    if case .completed = filterStatus { return true }
+                    return false
+                }(),
+                icon: "checkmark.circle.fill",
+                color: .green
+            ) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    filterStatus = .completed
                 }
             }
         }
@@ -286,15 +413,16 @@ struct TahoeFilterButton: View {
     
     private var iconView: some View {
         ZStack {
+            // Small color dot instead of full icon glow
             if isSelected {
                 Circle()
-                    .fill(color.opacity(0.2))
-                    .frame(width: 28, height: 28)
-                    .blur(radius: 6)
+                    .fill(color.opacity(0.15))
+                    .frame(width: 24, height: 24)
+                    .blur(radius: 4)
             }
             
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 14, weight: .medium))
                 .foregroundColor(isSelected ? color : .white.opacity(0.5))
                 .frame(width: 22, height: 22)
         }
@@ -404,7 +532,7 @@ struct GlassProjectRow: View {
         .overlay(rowBorder)
         .opacity(project.isPaused ? 0.6 : 1.0)
         .scaleEffect(isHovered && !reduceMotion ? 1.01 : 1.0)
-        .shadow(color: isSelected ? statusColor.opacity(0.2) : Color.clear, radius: 8, x: 0, y: 2)
+        .shadow(color: isSelected ? statusColor.opacity(0.1) : Color.clear, radius: 6, x: 0, y: 2)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
         .onHover { hovering in
@@ -433,16 +561,18 @@ struct GlassProjectRow: View {
     
     private var statusIndicator: some View {
         ZStack {
+            // Small inner glow only when selected (no outer glow)
             if isSelected {
                 Circle()
-                    .fill(statusColor.opacity(0.3))
-                    .frame(width: 16, height: 16)
-                    .blur(radius: 4)
+                    .fill(statusColor.opacity(0.2))
+                    .frame(width: 14, height: 14)
+                    .blur(radius: 3)
             }
             
+            // Small color dot
             Circle()
-                .fill(statusColor)
-                .frame(width: 9, height: 9)
+                .fill(statusColor.opacity(isSelected ? 0.9 : 0.7))
+                .frame(width: 7, height: 7)
         }
     }
     
@@ -471,24 +601,23 @@ struct GlassProjectRow: View {
             if reduceTransparency {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(white: 0.18))
+                        .fill(Color(white: 0.14))
                 }
             } else {
                 if isSelected {
+                    // Translucent neutral layer with glass highlight
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(.ultraThinMaterial)
-                        .opacity(0.7)
+                        .fill(Color.white.opacity(0.04))
+                    
+                    // Inner glow for glass highlight look
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(statusColor.opacity(0.08))
                 }
-            }
-            
-            if isSelected {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(statusColor.opacity(0.1))
             }
             
             if isHovered && !isSelected {
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(0.05))
+                    .fill(Color.white.opacity(0.03))
             }
         }
     }
@@ -496,13 +625,16 @@ struct GlassProjectRow: View {
     private var rowBorder: some View {
         RoundedRectangle(cornerRadius: 12)
             .stroke(
-                isSelected ? statusColor.opacity(0.5) : (isHovered ? Color.white.opacity(0.15) : Color.clear),
-                lineWidth: 1.5
+                isSelected ? statusColor.opacity(0.3) : (isHovered ? Color.white.opacity(0.1) : Color.clear),
+                lineWidth: 1
             )
     }
     
     private var statusColor: Color {
-        DynamicAccentColor.forStatus(project.activityStatus)
+        if project.isCompleted {
+            return DynamicAccentColor.successAccent
+        }
+        return DynamicAccentColor.forStatus(project.activityStatus)
     }
     
     private var timeAgoText: String {
@@ -554,36 +686,76 @@ struct LiquidMomentumBar: View {
 // MARK: - Empty States
 
 struct EmptySidebarState: View {
+    let totalProjects: Int
+    let filterStatus: ProjectFilter
+    
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "folder.badge.plus")
+            Image(systemName: iconName)
                 .font(.system(size: 48, weight: .light))
                 .foregroundColor(.white.opacity(0.3))
             
             VStack(spacing: 6) {
-                Text("No projects yet")
+                Text(titleText)
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundColor(.white.opacity(0.8))
                 
-                Text("Click + to add your first project")
+                Text(subtitleText)
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.5))
                     .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
             }
         }
         .frame(maxHeight: .infinity)
         .padding(24)
+    }
+    
+    private var iconName: String {
+        if totalProjects == 0 {
+            return "folder.badge.plus"
+        } else {
+            return "tray"
+        }
+    }
+    
+    private var titleText: String {
+        if totalProjects == 0 {
+            return "No projects yet"
+        }
+        
+        switch filterStatus {
+        case .all:
+            return "No projects found"
+        case .status(let status):
+            return "No \(status.rawValue) projects"
+        case .completed:
+            return "No completed projects"
+        }
+    }
+    
+    private var subtitleText: String {
+        if totalProjects == 0 {
+            return "Click + to add your first project"
+        }
+        
+        switch filterStatus {
+        case .all:
+            return "Try adjusting your search"
+        case .status, .completed:
+            return "You don't have any projects in this category"
+        }
     }
 }
 
 struct ModernEmptyProjectView: View {
     var body: some View {
         ZStack {
-            // Ambient gradient
+            // Softer ambient gradient
             LinearGradient(
                 colors: [
-                    Color(hue: 0.0, saturation: 0.02, brightness: 0.10),
-                    Color(hue: 0.0, saturation: 0.01, brightness: 0.08)
+                    Color(hex: "141416"),
+                    Color(hex: "121214")
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -592,11 +764,11 @@ struct ModernEmptyProjectView: View {
             
             VStack(spacing: 24) {
                 ZStack {
-                    // Glow
+                    // Softer glow
                     Circle()
-                        .fill(Color.blue.opacity(0.1))
+                        .fill(Color(hex: "38BDF8").opacity(0.06))
                         .frame(width: 120, height: 120)
-                        .blur(radius: 40)
+                        .blur(radius: 30)
                     
                     Image(systemName: "tray")
                         .font(.system(size: 64, weight: .light))
@@ -605,12 +777,12 @@ struct ModernEmptyProjectView: View {
                 
                 VStack(spacing: 10) {
                     Text("No Project Selected")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: 24, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)
                     
                     Text("Select a project from the sidebar to view details")
                         .font(.system(size: 14))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                 }
@@ -650,7 +822,7 @@ struct FrostedActionBar: View {
             
             Spacer()
             
-            Text("\(projectCount) projects")
+            Text("\(projectCount) \(projectCount == 1 ? "project" : "projects")")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.white.opacity(0.5))
         }

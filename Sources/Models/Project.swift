@@ -33,6 +33,8 @@ struct Project: Identifiable, Codable, Equatable, Hashable {
     var lastFileEditDate: Date?
     var createdDate: Date
     var isPaused: Bool
+    var isCompleted: Bool
+    var completedDate: Date?
     var goals: [ProjectGoal]
     var isGitRepository: Bool
     var commitCount: Int
@@ -46,6 +48,8 @@ struct Project: Identifiable, Codable, Equatable, Hashable {
         lastFileEditDate: Date? = nil,
         createdDate: Date = Date(),
         isPaused: Bool = false,
+        isCompleted: Bool = false,
+        completedDate: Date? = nil,
         goals: [ProjectGoal] = [],
         isGitRepository: Bool = false,
         commitCount: Int = 0,
@@ -58,6 +62,8 @@ struct Project: Identifiable, Codable, Equatable, Hashable {
         self.lastFileEditDate = lastFileEditDate
         self.createdDate = createdDate
         self.isPaused = isPaused
+        self.isCompleted = isCompleted
+        self.completedDate = completedDate
         self.goals = goals
         self.isGitRepository = isGitRepository
         self.commitCount = commitCount
@@ -78,6 +84,9 @@ struct Project: Identifiable, Codable, Equatable, Hashable {
     }
     
     var momentumScore: Double {
+        // Completed projects always have 100% momentum
+        if isCompleted { return 100 }
+        
         let days = daysSinceLastActivity
         if days == Int.max { return 0 }
         

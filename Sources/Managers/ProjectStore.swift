@@ -18,10 +18,24 @@ class ProjectStore: ObservableObject {
             do {
                 projects = try DatabaseService.shared.fetchAllProjects()
                     .sorted { ($0.lastActivityDate ?? .distantPast) > ($1.lastActivityDate ?? .distantPast) }
+
+                // Set up watchers for all loaded projects
+                await setupWatchers()
+
+                // Update menu bar icon
+                await MainActor.run {
+                    MenuBarManager.updateIcon()
+                }
             } catch {
                 print("❌ Failed to load projects: \(error)")
             }
             isLoading = false
+        }
+    }
+    
+    func setupWatchers() async {
+        for project in projects where !project.isPaused && !project.isCompleted {
+            await ProjectMonitorService.shared.addWatcher(for: project)
         }
     }
     
@@ -32,6 +46,12 @@ class ProjectStore: ObservableObject {
                 await MainActor.run {
                     projects.append(project)
                     sortProjects()
+                    MenuBarManager.updateIcon()
+                }
+
+                // Start watching this project for changes
+                if !project.isPaused && !project.isCompleted {
+                    await ProjectMonitorService.shared.addWatcher(for: project)
                 }
             } catch {
                 print("❌ Failed to add project: \(error)")
@@ -47,10 +67,36 @@ class ProjectStore: ObservableObject {
                     if let index = projects.firstIndex(where: { $0.id == project.id }) {
                         projects[index] = project
                         sortProjects()
+                        MenuBarManager.updateIcon()
                     }
+                }
+
+                // Update watcher based on pause state and completion status
+                if project.isPaused || project.isCompleted {
+                    await ProjectMonitorService.shared.removeWatcher(for: project.path)
+                } else {
+                    await ProjectMonitorService.shared.addWatcher(for: project)
                 }
             } catch {
                 print("❌ Failed to update project: \(error)")
+            }
+        }
+    }
+    
+    // Internal update method for file system changes (doesn't update watchers)
+    func updateProjectFromFileSystem(_ project: Project) {
+        Task {
+            do {
+                try DatabaseService.shared.updateProject(project)
+                await MainActor.run {
+                    if let index = projects.firstIndex(where: { $0.id == project.id }) {
+                        projects[index] = project
+                        sortProjects()
+                        MenuBarManager.updateIcon()
+                    }
+                }
+            } catch {
+                print("❌ Failed to update project from file system: \(error)")
             }
         }
     }
@@ -61,7 +107,11 @@ class ProjectStore: ObservableObject {
                 try DatabaseService.shared.deleteProject(project)
                 await MainActor.run {
                     projects.removeAll { $0.id == project.id }
+                    MenuBarManager.updateIcon()
                 }
+
+                // Stop watching this project
+                await ProjectMonitorService.shared.removeWatcher(for: project.path)
             } catch {
                 print("❌ Failed to delete project: \(error)")
             }
@@ -83,6 +133,7 @@ class ProjectStore: ObservableObject {
                 }
             }
             isLoading = false
+            MenuBarManager.updateIcon()
         }
     }
     
@@ -113,6 +164,45 @@ class ProjectStore: ObservableObject {
     
     var pausedProjects: [Project] {
         projects.filter { $0.isPaused }
+    }
+    
+    var completedProjects: [Project] {
+        projects.filter { $0.isCompleted }
+    }
+    
+    var activeAndOngoingProjects: [Project] {
+        projects.filter { !$0.isCompleted }
+    }
+    
+    func completeProject(_ project: Project) {
+        var completed = project
+        completed.isCompleted = true
+        completed.completedDate = Date()
+        updateProject(completed)
+    }
+    
+    func uncompleteProject(_ project: Project) {
+        var uncompleted = project
+        uncompleted.isCompleted = false
+        uncompleted.completedDate = nil
+        updateProject(uncompleted)
+    }
+
+    func toggleGoal(_ goal: ProjectGoal, in project: Project) {
+        var updatedProject = project
+        if let goalIndex = updatedProject.goals.firstIndex(where: { $0.id == goal.id }) {
+            var updatedGoal = updatedProject.goals[goalIndex]
+            updatedGoal.isCompleted.toggle()
+            updatedGoal.completedDate = updatedGoal.isCompleted ? Date() : nil
+            updatedProject.goals[goalIndex] = updatedGoal
+            updateProject(updatedProject)
+        }
+    }
+
+    func deleteGoal(_ goal: ProjectGoal, in project: Project) {
+        var updatedProject = project
+        updatedProject.goals.removeAll { $0.id == goal.id }
+        updateProject(updatedProject)
     }
 }
 
