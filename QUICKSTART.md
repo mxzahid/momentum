@@ -31,11 +31,7 @@ The app will launch and show the onboarding screen.
    - Select the folder
    - Repeat for multiple folders
 
-3. **Configure AI** (Optional):
-   - Toggle "Enable AI Insights" if you have Ollama
-   - Keep default settings or customize
-
-4. **Click "Get Started"**
+3. **Click "Get Started"**
    - Momentum will scan your folders for Git repos
    - Projects will appear in the dashboard
 
@@ -54,7 +50,6 @@ The main window shows:
   - Last activity date
   - Commit count
   - Set goals and deadlines
-  - AI insights (if enabled)
 
 - **Actions**:
   - "Open in VSCode" - Opens project in VSCode
@@ -114,26 +109,6 @@ If daily nudges are too much:
 3. Adjust "Nudge Frequency" (1-168 hours)
 4. Set "Quiet Hours" to avoid late-night pings
 
-### Use AI Insights
-
-If you have Ollama installed:
-
-```bash
-# Install Ollama
-brew install ollama
-
-# Pull a model
-ollama pull llama2
-
-# Start server (in background)
-ollama serve
-```
-
-Then in Momentum:
-1. Settings > AI
-2. Enable "AI Insights"
-3. Click "Test Connection"
-4. View insights in project detail view
 
 ## 🔄 Daily Workflow
 
@@ -145,9 +120,8 @@ Then in Momentum:
 
 ### When You Get Stuck
 1. View project in dashboard
-2. Click "AI Insight" for suggestions
-3. Review your goal
-4. Break it into smaller tasks
+2. Review your goal
+3. Break it into smaller tasks
 
 ### If You're Not Working on a Project
 1. Select the project
@@ -183,19 +157,6 @@ Then in Momentum:
 2. ⌘⇧P (Command Palette)
 3. Type "Shell Command: Install 'code' command in PATH"
 
-### AI insights not working?
-
-**Check**:
-```bash
-curl http://localhost:11434/api/generate -d '{
-  "model": "llama2",
-  "prompt": "Hello"
-}'
-```
-
-**Solution**: 
-- Start Ollama: `ollama serve`
-- Pull model: `ollama pull llama2`
 
 ## 📱 Keyboard Shortcuts
 
@@ -264,9 +225,8 @@ The momentum score uses exponential decay:
 
 1. **Don't track everything**: Pause projects you're definitely not working on
 2. **Be honest with goals**: "Explore idea" is valid, not everything needs shipping
-3. **Use AI sparingly**: Let it inspire, not dictate
-4. **Celebrate wins**: Mark projects as paused when you finish them!
-5. **Weekly review**: Sunday evening, scan all projects, pick focus for the week
+3. **Celebrate wins**: Mark projects as paused when you finish them!
+4. **Weekly review**: Sunday evening, scan all projects, pick focus for the week
 
 ## 🆘 Need Help?
 
