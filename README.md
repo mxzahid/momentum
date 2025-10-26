@@ -36,7 +36,6 @@ Choose from:
 - macOS 13.0 (Ventura) or later
 - Xcode 15.0 or later (for building from source)
 - Swift 5.9 or later (for building from source)
-- (Optional) [Ollama](https://ollama.ai) for AI features
 
 ### Building from Source
 
@@ -86,11 +85,6 @@ Choose from:
    - Momentum will scan for Git repositories automatically
    - Common locations: `~/Projects`, `~/Code`, `~/Developer`
 
-3. **Configure AI** (Optional)
-   - Enable AI insights if you have Ollama installed
-   - Default endpoint: `http://localhost:11434`
-   - Default model: `llama2`
-
 ### Main Features
 
 #### Dashboard
@@ -129,7 +123,6 @@ Momentum/
 │   ├── ProjectDiscoveryService.swift  # Auto-discovery of projects
 │   ├── ProjectMonitorService.swift    # Background activity monitoring
 │   ├── NotificationManager.swift      # macOS notifications
-│   └── AIService.swift         # Ollama API integration
 ├── Managers/
 │   ├── SettingsManager.swift  # Settings state management
 │   ├── ProjectStore.swift     # Project state management
@@ -180,7 +173,6 @@ momentumScore = 100 * exp(-daysSinceActivity / 10.0)
 - **100% Local**: All data stays on your Mac
 - **No Cloud**: No server sync, no account required
 - **Metadata Only**: Only reads timestamps and git stats, never code content
-- **Opt-in**: AI features require explicit user consent
 - **No Telemetry**: Zero tracking or analytics
 
 ## 🛣️ Roadmap
@@ -191,7 +183,6 @@ momentumScore = 100 * exp(-daysSinceActivity / 10.0)
 - [x] Menu bar widget
 - [x] Smart notifications
 - [x] Multiple motivation styles
-- [x] Optional AI insights via Ollama
 
 ### v1.1 (Planned)
 - [ ] Activity charts and trends
